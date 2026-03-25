@@ -14,7 +14,7 @@ Lambda:
   fonction: p-idfm-pipeline-fetch-api
   timeout: 300 #en secondes
   memoire_allouee: 256 #à modifier si besoin
-  URL_API: https://data.iledefrance-mobilites.fr/api/explore/v2.1/catalog/datasets/histo-validations-reseau-ferre/exports/csv
+  URL_API:  https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/histo-validations-reseau-ferre/exports/json
 
 Glue: 
   nom_du_job: glue-transf-bronzetosilver
