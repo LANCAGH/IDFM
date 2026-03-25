@@ -53,6 +53,11 @@ J'ai utilisé les sections `roles`et `policies` de AWS IAM afin de créer des po
 
 **Orchestration des jobs Glue** : Lambda déclenche les deux jobs Glue en séquence via `start_job_run` (boto3) — cleaning puis curation. Step Functions est identifié comme évolution v2 pour une orchestration plus robuste avec gestion des états et retry.
 
+**Flux d'ingestion Lambda (3 étapes)** :
+1. Appel API `/exports/json` avec `refine=annee:{year}` → retourne un JSON contenant l'URL du fichier ZIP de l'année
+2. Téléchargement du ZIP depuis `reseau_ferre.url`
+3. Extraction du CSV depuis le ZIP, écriture en Bronze sur S3
+
 ---
 
 ## 3. Granularité de l'analyse — Zone de Correspondance (ZdC)
@@ -149,6 +154,8 @@ Ayant exploré les CSV manuellement, j'ai pu **imaginer quelques règles pour la
 **Décision** : l'API IDFM est publique — aucun secret à stocker. AWS Systems Manager Parameter Store est identifié comme évolution si clés API privées.
 
 **Justification** : Le Parameter Store est gratuit, natif AWS, et accessible à runtime par Lambda et Glue sans exposition dans le code source. Non nécessaire pour ce projet en l'état.
+
+**Configuration API** : l'URL de base de l'API est stockée dans `config.yaml` sous `Lambda.URL_API`. Le paramètre de filtre `refine=annee:{year}` est construit dynamiquement dans le code à chaque run.
 
 ---
 
