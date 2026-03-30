@@ -14,7 +14,9 @@ Lambda:
   fonction: p-idfm-pipeline-fetch-api
   timeout: 300 #en secondes
   memoire_allouee: 256 #à modifier si besoin
-  URL_API:  https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/histo-validations-reseau-ferre/exports/json
+  URL_API_NBFER:  https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/histo-validations-reseau-ferre/exports/json #données historiques de traffic
+  URL_API_ACCESS: https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/accessibilite-en-gare/exports/json #données de score d'accessibilité en gare
+  URL_API_REF: https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/zones-d-arrets/exports/json #données de jointure entre zone ZdA et ZdC pour jointure
 
 Glue: 
   nom_du_job: glue-transf-bronzetosilver

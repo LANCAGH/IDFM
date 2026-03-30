@@ -53,10 +53,20 @@ J'ai utilisé les sections `roles`et `policies` de AWS IAM afin de créer des po
 
 **Orchestration des jobs Glue** : Lambda déclenche les deux jobs Glue en séquence via `start_job_run` (boto3) — cleaning puis curation. Step Functions est identifié comme évolution v2 pour une orchestration plus robuste avec gestion des états et retry.
 
-**Flux d'ingestion Lambda (3 étapes)** :
-1. Appel API `/exports/json` avec `refine=annee:{year}` → retourne un JSON contenant l'URL du fichier ZIP de l'année
+**Flux d'ingestion — ce qui a été réellement fait** :
+
+L'ingestion historique (2015-2024) a été réalisée via un script Python exécuté en local (`ingestion_NB_FER_hist.py`), qui écrit directement dans S3 via `boto3` avec les credentials AWS CLI configurés localement. Les données sont présentes dans la couche Bronze.
+
+Le code Lambda (`ingestion_NB_FER_hist.py`) a été rédigé et structuré avec le point d'entrée `lambda_handler(event, context)` pour les ingestions semestrielles futures, mais **n'a pas été déployé sur AWS Lambda** dans le cadre de ce projet. Le flux prévu est :
+1. Appel API `/exports/json` → JSON contenant l'URL du fichier ZIP de l'année
 2. Téléchargement du ZIP depuis `reseau_ferre.url`
 3. Extraction du CSV depuis le ZIP, écriture en Bronze sur S3
+
+**Environnements dev / prod** :
+
+En production, la bonne pratique est de séparer les environnements avec deux buckets distincts (`p-idfm-pipeline-dev` et `p-idfm-pipeline-prod`) et deux fonctions Lambda séparées partageant le même code mais des variables d'environnement différentes. Cette séparation permet de tester une ingestion sur des données récentes sans risquer d'écraser les données de production.
+
+Dans le cadre de ce projet, un seul bucket est utilisé (`p-idfm-pipeline`). L'ingestion historique ayant été exécutée une seule fois en local, le risque d'écrasement était maîtrisé. Cette décision est un compromis volontaire lié au périmètre portfolio du projet.
 
 ---
 
@@ -100,74 +110,7 @@ RANK() OVER (ORDER BY total_validations DESC, score_pmr ASC)
 
 ---
 
-## 5. Data Quality — Framework WARN / ERROR
-
-Je me suis basé sur des vidéos que j'ai pu voir sur le maintien de la data quality. Cette partie est susceptible d'évoluer.
-
-**Décision** : Deux niveaux de sévérité sur tous les datasets entrants.
-
-- **ERROR** : anomalie bloquante, pipeline arrêté, flag `pipeline_status=FAILED` écrit en S3
-- **WARN** : anomalie non bloquante, pipeline continue, alerte dans le rapport qualité
-
-**Justification** : Distinguer ce qui corrompt silencieusement les données (ERROR) de ce qui mérite surveillance sans bloquer (WARN). Exemple : une correspondance ZdC↔ZdA modifiée fausse toutes les jointures → ERROR. Un nouveau nom de station inconnu → WARN.
-
-Ayant exploré les CSV manuellement, j'ai pu **imaginer quelques règles pour la qualité** : 
-
-**Principaux contrôles par table** :
-
-| Table | Contrôle | Sévérité |
-| --- | --- | --- |
-| NB_FER | JOUR hors période batch attendue | ERROR |
-| NB_FER | Colonnes manquantes ou renommées | ERROR |
-| NB_FER | NB_VALD < 0 | ERROR |
-| NB_FER | Nouveau COD_STIF_ARRET inconnu | WARN |
-| NB_FER | CATEGORIE_TITRE hors 7 modalités | WARN |
-| Accessibilité | Score PMR hors [1-6] | ERROR |
-| Accessibilité | Coordonnées hors bbox Île-de-France | ERROR |
-| Accessibilité | Nouveau stop_name inconnu | WARN |
-| Zones d'arrêts | Correspondance ZdC↔ZdA modifiée | ERROR |
-| Zones d'arrêts | Cardinalité différente du batch précédent | WARN |
-
----
-
-## 6. Data Profiling — Exploration et Monitoring
-
-**Décision** : Deux types de rapports générés automatiquement.
-
-- **Profiling initial** (one-shot) : au moment de la première ingestion, pour comprendre les distributions et alimenter les règles qualité
-- **Profiling continu** : généré à chaque run batch pour détecter les dérives dans le temps (data drift)
-
-**Justification** : Le Data Quality Report répond à "est-ce que la donnée respecte mes règles ?" Le Data Profiling Report répond à "à quoi ressemble ma donnée ?" Les deux se complètent.
-
----
-
-## 7. Idempotence — Checkpoint par année
-
-**Décision** : À chaque ingestion réussie, un fichier de métadonnées est écrit dans `pipeline_metadata/` avec l'année/semestre traité. Avant chaque run, le pipeline vérifie quels checkpoints existent et ne retraite que ce qui manque.
-
-**Justification** : Un pipeline idempotent peut être relancé plusieurs fois sans corrompre les données. Si le backfill échoue sur l'année 2018, on relance uniquement 2018 sans réingérer 2015-2017. J'ai appris avec la doc que c'était un choix judicieux en production.
-
----
-
-## 8. Gestion des secrets
-
-**Décision** : l'API IDFM est publique — aucun secret à stocker. AWS Systems Manager Parameter Store est identifié comme évolution si clés API privées.
-
-**Justification** : Le Parameter Store est gratuit, natif AWS, et accessible à runtime par Lambda et Glue sans exposition dans le code source. Non nécessaire pour ce projet en l'état.
-
-**Configuration API** : l'URL de base de l'API est stockée dans `config.yaml` sous `Lambda.URL_API`. Le paramètre de filtre `refine=annee:{year}` est construit dynamiquement dans le code à chaque run.
-
----
-
-## 9. Monitoring
-
-**Décision** : CloudWatch surveille l'état des jobs Glue et Lambdas. En cas d'échec, SNS envoie une notification email automatique.
-
-**Justification** : Sans monitoring, un échec silencieux du pipeline peut passer inaperçu pendant des semaines. CloudWatch + SNS est entièrement dans le Free Tier et ne nécessite que quelques minutes de configuration. Pour ce projet, je ne me force pas à l'implémenter.
-
----
-
-## 10. Normalisation des identifiants historiques
+## 5. Normalisation des identifiants historiques
 
 **Décision** : Les fichiers 2015-2016 utilisent d'anciens identifiants `ID_REFA_LDA`. En couche Bronze ils sont conservés intacts (immuabilité). En couche Silver, la table de correspondance ancien ID → nouvel ID est appliquée pour garantir une clé cohérente sur 10 ans.
 
