@@ -8,7 +8,7 @@
 
 **Besoin fictif** : Île-de-France Mobilités souhaite prioriser ses investissements en accessibilité PMR sur le réseau ferré (RER, métro, Transilien). L'enjeu est d'identifier quelles stations doivent être rénovées en premier, en croisant leur fréquentation réelle avec leur niveau d'accessibilité actuel.
 
-**Périmètre** : Réseau ferré uniquement (hors bus et tram), données 2015-2024. Choix volontaire afin de limiter les données en entrée, pour un premier projet.
+**Périmètre** : Réseau ferré uniquement (hors bus et tram), données 2024 uniquement. Simplification volontaire du périmètre initial (2015-2024) pour se concentrer sur l'année la plus récente disponible. Les 3 fichiers 2024 (S1, T3, T4) sont concaténés pour former une année complète.
 
 ---
 
@@ -112,9 +112,7 @@ RANK() OVER (ORDER BY total_validations DESC, score_pmr ASC)
 
 ## 5. Normalisation des identifiants historiques
 
-**Décision** : Les fichiers 2015-2016 utilisent d'anciens identifiants `ID_REFA_LDA`. En couche Bronze ils sont conservés intacts (immuabilité). En couche Silver, la table de correspondance ancien ID → nouvel ID est appliquée pour garantir une clé cohérente sur 10 ans.
-
-**Justification** : Modifier le Bronze contreviendrait au principe d'immuabilité. La normalisation en Silver permet des analyses temporelles cohérentes sans altérer la source.
+**Décision** : Hors scope — le périmètre étant limité à 2024, les anciens identifiants 2015-2016 ne sont pas traités. Les fichiers 2024 utilisent les identifiants courants `ID_REFA_LDA`.
 
 ---
 
