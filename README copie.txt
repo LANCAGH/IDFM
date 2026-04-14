@@ -116,32 +116,6 @@ RANK() OVER (ORDER BY total_validations DESC, score_pmr ASC)
 
 ---
 
-## 6. Transformation Bronze → Silver
-
-**Statut** : Complété — job Glue `glue-transf-bronzetosilver` déployé et exécuté avec succès.
-
-**Ce que fait la transformation** :
-1. Chargement des 3 fichiers NB_FER_2024 (S1, T3, T4) depuis Bronze, concaténation
-2. Chargement ACCESSIBILITE et REFERENCES depuis Bronze
-3. Nettoyage :
-   - `NB_VALD` : conversion `object → float64` (`errors='coerce'`)
-   - Suppression des lignes sans `ID_ZDC` (~48 366 lignes, 2.7%)
-   - Typage explicite de toutes les colonnes `object` pour compatibilité PyArrow
-   - `stop_point_id` ACCESSIBILITE : extraction du suffixe numérique (`stop_point:IDFM:monomodalStopPlace:43069` → `43069`)
-   - REFERENCES : filtre sur `metroStation`, `railStation`, `liftStation`
-4. Double jointure INNER : `NB_FER → REFERENCES (ID_ZDC = zdcid) → ACCESSIBILITE (zdaid = stop_point_id)`
-5. Export Parquet dans `silver/nb_fer_accessibilite_2024.parquet`
-
-**Résultat** : 976 222 lignes, 100% `railStation` — cohérent avec le périmètre réseau ferré.
-
-**Note technique** : Le fichier `config.yaml` est lu depuis S3 (`config/config.yaml`) et non en local — le script est ainsi autonome sur le serveur Glue sans dépendance au système de fichiers local.
-
-**Couverture des jointures validée en exploration** :
-- NB_FER → REFERENCES : 97.3% de couverture (2.7% de pertes acceptables)
-- ACCESSIBILITE → REFERENCES : 100% de couverture
-
----
-
 ## Évolutions futures (hors scope)
 
 - **Step Functions** : remplacement de l'orchestration Lambda séquentielle pour une gestion des états, conditions et retry plus robuste
