@@ -18,12 +18,11 @@ Lambda:
   URL_API_ACCESS: https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/accessibilite-en-gare/exports/json #données de score d'accessibilité en gare
   URL_API_REF: https://data.iledefrance-mobilites.fr/api/explore/v2.0/catalog/datasets/zones-d-arrets/exports/json #données de jointure entre zone ZdA et ZdC pour jointure
 
-Glue: 
+Glue:
   nom_du_job: glue-transf-bronzetosilver
   timeout: 10 #en minutes
-  type_worker: G.1X
-  nb_workers: 2 #minimum avec Spark
-  version: 5.0 #je prends pas la dernière version, adaptée pour python 3.11
+  memoire: 0.0625 DPU #1/16 DPU, suffisant pour Python Shell
+  version: 3.0 #adaptée pour python 3.9
 
 Athena: 
   nom: athena-idfm

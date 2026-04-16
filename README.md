@@ -98,15 +98,15 @@ validations.ID_REFA_LDA (ZdC)
 
 **Décision** : Pas de formule normalisée. Classement direct par :
 
-1. Fréquentation totale décroissante
-2. Score PMR croissant (1 = moins accessible = prioritaire)
+1. Score PMR croissant (1 = moins accessible = prioritaire)
+2. Fréquentation totale décroissante (à accessibilité égale, la plus fréquentée en premier)
 
 En SQL : 
 ```sql
-RANK() OVER (ORDER BY total_validations DESC, score_pmr ASC)
+ORDER BY score_pmr ASC, total_validations DESC
 ```
 
-**Justification** : L'objectif métier est d'identifier les stations à fort trafic et faible accessibilité. Un classement est plus lisible et actionnable pour un décideur qu'un score composite normalisé. La comparabilité temporelle est assurée en comparant le podium d'une année à l'autre.
+**Justification** : L'objectif métier est d'identifier les stations les moins accessibles à fort trafic. Le score PMR est le critère principal — toutes les gares `accessibility_level_id = 1` apparaissent en tête, triées entre elles par fréquentation. Puis les `accessibility_level_id = 2`, etc. Un classement est plus lisible et actionnable pour un décideur qu'un score composite normalisé.
 
 ---
 
@@ -139,6 +139,30 @@ RANK() OVER (ORDER BY total_validations DESC, score_pmr ASC)
 **Couverture des jointures validée en exploration** :
 - NB_FER → REFERENCES : 97.3% de couverture (2.7% de pertes acceptables)
 - ACCESSIBILITE → REFERENCES : 100% de couverture
+
+---
+
+## 7. Transformation Silver → Gold
+
+**Statut** : Complété — job Glue `glue-transf-silvertogold` déployé et exécuté avec succès.
+
+**Ce que fait la transformation** :
+1. Chargement de `silver/nb_fer_accessibilite_2024.parquet` depuis S3
+2. Calcul de `total_validations` par ZdC :
+   - Déduplication sur `ID_ZDC + JOUR + CATEGORIE_TITRE` pour éliminer les doublons introduits par la jointure Silver (NB_VALD est au niveau ZdC, répété une fois par ZdA)
+   - `groupby('ID_ZDC')['NB_VALD'].sum()` sur le DataFrame dédupliqué
+3. Calcul de `score_pmr` par ZdC :
+   - `idxmin()` sur `accessibility_level_id` groupé par `ID_ZDC` → index de la ligne avec le score minimum
+   - `.loc[]` sur ces index pour extraire `accessibility_level_id` et `accessibility_level_name` (garantit que le label correspond bien au MIN)
+4. Merge des deux résultats sur `ID_ZDC`
+5. Classement : tri par `accessibility_level_id ASC` puis `total_validations DESC` → les gares les moins accessibles et les plus fréquentées en tête
+6. Export Parquet dans `gold/pmr_priority_ranking.parquet`
+
+**Résultat** : 412 lignes (une par ZdC), 8 colonnes — `ID_ZDC`, `score_pmr`, `score_pmr_label`, `zdaname`, `zdatown`, `zdatype`, `total_validations`, `rank_priorite`.
+
+**Note technique** : `NB_VALD` dans la Silver est dupliqué N fois (une fois par ZdA de la ZdC) à cause de la jointure avec REFERENCES. La déduplication est donc indispensable avant la somme — sommer directement sur la Silver produirait un total gonflé d'un facteur N.
+
+**Table Athena** : `pmr_priority_ranking` créée via `CREATE EXTERNAL TABLE` DDL dans la console Athena, pointant sur `s3://p-idfm-pipeline/gold/`.
 
 ---
 
