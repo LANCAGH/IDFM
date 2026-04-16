@@ -101,11 +101,6 @@ validations.ID_REFA_LDA (ZdC)
 1. Score PMR croissant (1 = moins accessible = prioritaire)
 2. Fréquentation totale décroissante (à accessibilité égale, la plus fréquentée en premier)
 
-En SQL : 
-```sql
-ORDER BY score_pmr ASC, total_validations DESC
-```
-
 **Justification** : L'objectif métier est d'identifier les stations les moins accessibles à fort trafic. Le score PMR est le critère principal — toutes les gares `accessibility_level_id = 1` apparaissent en tête, triées entre elles par fréquentation. Puis les `accessibility_level_id = 2`, etc. Un classement est plus lisible et actionnable pour un décideur qu'un score composite normalisé.
 
 ---
@@ -166,8 +161,29 @@ ORDER BY score_pmr ASC, total_validations DESC
 
 ---
 
+## 8. Visualisation — Power BI
+
+**Statut** : Partiellement complété — connexion ODBC fonctionnelle, données chargeables dans Power BI. Dashboard non réalisé.
+
+**Ce qui a été fait** :
+- Installation du driver ODBC Simba Athena (v2.01.00.00, 64 bits) sur Windows
+- Configuration du DSN `Athena-IDFM` : région `eu-west-3`, workgroup `primary`, output S3 `athena_results/`
+- Connexion Power BI Desktop → ODBC → table `pmr_priority_ranking` accessible et chargeable
+- Mise à jour des permissions IAM (`hugo-idfm-dev`) pour autoriser les actions Athena, Glue Data Catalog et S3 nécessaires au driver
+
+**Ce qui n'a pas été fait** :
+- Construction du dashboard Power BI (visualisations, mise en page, filtres) — hors scope de ce projet
+
+**Flux de connexion** :
+```
+Power BI Desktop → driver ODBC Simba Athena → Athena (workgroup primary) → Glue Data Catalog → S3 gold/pmr_priority_ranking.parquet
+```
+
+---
+
 ## Évolutions futures (hors scope)
 
+- **Dashboard Power BI** : construction des visualisations (carte des stations, classement PMR, filtres par ville/type)
 - **Step Functions** : remplacement de l'orchestration Lambda séquentielle pour une gestion des états, conditions et retry plus robuste
 - **dbt** : remplacement de Glue pour les transformations Silver/Gold, apporte lineage, documentation et tests natifs
 - **Infrastructure as Code** : AWS CDK pour recréer l'environnement from scratch en une commande
